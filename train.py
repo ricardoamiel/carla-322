@@ -9,13 +9,15 @@ import loader as L
 # Transform for input images
 transform = transforms.Compose([
     transforms.Resize((88, 200)),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1), # added
+    transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0)), # added
     transforms.ToTensor()
 ])
 
 # Load H5 files
 h5_dir = os.getcwd() + "/data/SeqTrain/"
 h5_files = [os.path.join(h5_dir, f) for f in os.listdir(h5_dir) if f.endswith('.h5')]
-dataset = L.CarlaDataset(h5_files[:2], seq_len=5, transform=transform)
+dataset = L.CarlaDataset(h5_files[:4], seq_len=5, transform=transform)
 dataloader = DataLoader(dataset, batch_size=2, shuffle=True)
 
 # Model, loss, optimizer

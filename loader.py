@@ -5,13 +5,13 @@ import h5py
 from PIL import Image
 
 class CarlaDataset(Dataset):
-    def __init__(self, h5_files, seq_len=5, transform=None):
+    def __init__(self, h5_files, seq_len=5, transform=None, oversample=True):
         self.seq_len = seq_len
         self.transform = transform
         self.data = []
 
         for file in h5_files:
-            with h5py.File(file, 'r') as f:#     H    W  #im  C       
+            with h5py.File(file, 'r') as f:#     #im    H    W  C       
                 images = f['rgb'][:]  # shape: (200, 88, 200, 3)
                 targets = f['targets'][:]       # shape: (200, 28) #im, C
 
@@ -20,8 +20,13 @@ class CarlaDataset(Dataset):
                     steer, gas, brake = targets[i+seq_len-1, 0:3] # 0,1,2
                     cmd = int(targets[i+seq_len-1, 23]) #high level command 2 Follow lane, 3 Left, 4 Right, 5 Straight)
                     speed = targets[i+seq_len-1, 10] # speed
-                    self.data.append((img_seq, cmd, speed, [steer, gas, brake]))
+                    sample = (img_seq, cmd, speed, [steer, gas, brake])
+                    self.data.append(sample)
 
+                    # Oversample if command is Left or Right
+                    if oversample and cmd in [3, 4]:
+                        for _ in range(2):  # duplicate twice
+                            self.data.append(sample)
     def __len__(self):
         return len(self.data)
 
