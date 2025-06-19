@@ -11,15 +11,15 @@ class CarlaDataset(Dataset):
         self.data = []
 
         for file in h5_files:
-            with h5py.File(file, 'r') as f:
+            with h5py.File(file, 'r') as f:#     H    W  #im  C       
                 images = f['rgb'][:]  # shape: (200, 88, 200, 3)
-                targets = f['targets'][:]       # shape: (200, 28)
+                targets = f['targets'][:]       # shape: (200, 28) #im, C
 
-                for i in range(len(images) - seq_len):
-                    img_seq = images[i:i+seq_len]
-                    steer, gas, brake = targets[i+seq_len-1, 0:3]
-                    cmd = int(targets[i+seq_len-1, 23])
-                    speed = targets[i+seq_len-1, 10]
+                for i in range(len(images) - seq_len): # 200 - 5 = 195
+                    img_seq = images[i:i+seq_len] # tomar de 5 frames en 5
+                    steer, gas, brake = targets[i+seq_len-1, 0:3] # 0,1,2
+                    cmd = int(targets[i+seq_len-1, 23]) #high level command 2 Follow lane, 3 Left, 4 Right, 5 Straight)
+                    speed = targets[i+seq_len-1, 10] # speed
                     self.data.append((img_seq, cmd, speed, [steer, gas, brake]))
 
     def __len__(self):
@@ -41,6 +41,7 @@ class CarlaDataset(Dataset):
             cmd_index = 0  # o salta este sample, o usa vector neutral
 
         cmd_tensor = torch.nn.functional.one_hot(torch.tensor(cmd_index), num_classes=4).float()
+        # 2(1,0,0,0), 3(0,1,0,0), 4(0,0,1,0), 5(0,0,0,1): 
 
         speed_tensor = torch.tensor([speed]).float()
         targets_tensor = torch.tensor(targets).float()
