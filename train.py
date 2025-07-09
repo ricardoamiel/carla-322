@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 import torch
 import torchvision.transforms as transforms
 import torch.nn as nn
+import torch.amp as amp
 import model as M
 import loader as L
 
@@ -17,15 +18,19 @@ transform = transforms.Compose([
 # Load H5 files
 h5_dir = os.getcwd() + "/data/SeqTrain/"
 h5_files = [os.path.join(h5_dir, f) for f in os.listdir(h5_dir) if f.endswith('.h5')]
-dataset = L.CarlaDataset(h5_files[:4], seq_len=5, transform=transform)
-dataloader = DataLoader(dataset, batch_size=2, shuffle=True)
+dataset = L.CarlaDataset(h5_files, seq_len=16, transform=transform)
+dataloader = DataLoader(dataset, batch_size=32, shuffle=True, num_workers=8
+                        , pin_memory=True, persistent_workers=True)
+
 
 # Model, loss, optimizer
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #model = M.CNNLSTM().to(device)
 model = M.CNNAttentionLSTM().to(device)
+model = torch.compile(model)
 criterion = nn.L1Loss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+scaler = amp.GradScaler("cuda")
 
 # Checkpoint setup
 best_loss = float('inf')
@@ -33,40 +38,50 @@ save_dir = os.getcwd() + "/checkpoints"
 os.makedirs(save_dir, exist_ok=True)
 
 # Training loop
-for epoch in range(5):
+for epoch in range(300):
     model.train()
     total_loss = 0
     total_loss_steer = 0
     total_loss_gas = 0
     total_loss_brake = 0
     for img_seq, cmd, speed, targets in dataloader:
-        img_seq, cmd, speed, targets = img_seq.to(device), cmd.to(device), speed.to(device), targets.to(device)
-        optimizer.zero_grad()
-        outputs = model(img_seq, cmd, speed)
-        loss = criterion(outputs, targets)
-        loss.backward()
-        optimizer.step()
+        img_seq = img_seq.to(device, non_blocking=True)
+        cmd = cmd.to(device, non_blocking=True)
+        speed = speed.to(device, non_blocking=True)
+        targets = targets.to(device, non_blocking=True)
+        optimizer.zero_grad(set_to_none=True)
+        with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+            outputs = model(img_seq, cmd, speed)
+            loss = criterion(outputs, targets)
+
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+
         total_loss += loss.item()
 
-        # Calcular loss por cada salida
-        loss_steer = criterion(outputs[:, 0], targets[:, 0])
-        loss_gas = criterion(outputs[:, 1], targets[:, 1])
-        loss_brake = criterion(outputs[:, 2], targets[:, 2])
-        total_loss_steer += loss_steer.item()
-        total_loss_gas += loss_gas.item()
-        total_loss_brake += loss_brake.item()
+        # Individual losses (with autocast disabled for loss calculation)
+        with torch.no_grad():
+            total_loss_steer += criterion(outputs[:, 0], targets[:, 0]).item()
+            total_loss_gas += criterion(outputs[:, 1], targets[:, 1]).item()
+            total_loss_brake += criterion(outputs[:, 2], targets[:, 2]).item()
 
-    avg_loss = total_loss / len(dataloader)
-    avg_loss_steer = total_loss_steer / len(dataloader)
-    avg_loss_gas = total_loss_gas / len(dataloader)
-    avg_loss_brake = total_loss_brake / len(dataloader)
-    print(f"Epoch {epoch+1}, Loss: {avg_loss:.4f} | Steer: {avg_loss_steer:.4f} | Gas: {avg_loss_gas:.4f} | Brake: {avg_loss_brake:.4f}")
+    # Epoch statistics
+    num_batches = len(dataloader)
+    print(f"Epoch {epoch+1}: "
+          f"Loss: {total_loss/num_batches:.4f} | "
+          f"Steer: {total_loss_steer/num_batches:.4f} | "
+          f"Gas: {total_loss_gas/num_batches:.4f} | "
+          f"Brake: {total_loss_brake/num_batches:.4f}")
 
     # Save checkpoint
-    torch.save(model.state_dict(), os.path.join(save_dir, f"checkpoint_epoch_{epoch+1}.pt"))
+    checkpoint_path = os.path.join(save_dir, f"checkpoint_epoch_{epoch+1}.pt")
+    torch.save(model.state_dict(), checkpoint_path)
 
     # Save best model
-    if avg_loss < best_loss:
-        best_loss = avg_loss
-        torch.save(model.state_dict(), os.path.join(save_dir, "best_model.pt"))
-        print(f"✅ Best model updated at epoch {epoch+1} with loss {best_loss:.4f}")
+    epoch_loss = total_loss / num_batches
+    if epoch_loss < best_loss:
+        best_loss = epoch_loss
+        best_model_path = os.path.join(save_dir, "best_model.pt")
+        torch.save(model.state_dict(), best_model_path)
+        print(f"✅ Best model updated (Loss: {best_loss:.4f})")

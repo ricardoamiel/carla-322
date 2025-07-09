@@ -11,22 +11,26 @@ class CarlaDataset(Dataset):
         self.data = []
 
         for file in h5_files:
-            with h5py.File(file, 'r') as f:#     #im    H    W  C       
-                images = f['rgb'][:]  # shape: (200, 88, 200, 3)
-                targets = f['targets'][:]       # shape: (200, 28) #im, C
+            try:
+                with h5py.File(file, 'r') as f:#     #im    H    W  C       
+                    images = f['rgb'][:]  # shape: (200, 88, 200, 3)
+                    targets = f['targets'][:]       # shape: (200, 28) #im, C
 
-                for i in range(len(images) - seq_len): # 200 - 5 = 195
-                    img_seq = images[i:i+seq_len] # tomar de 5 frames en 5
-                    steer, gas, brake = targets[i+seq_len-1, 0:3] # 0,1,2
-                    cmd = int(targets[i+seq_len-1, 23]) #high level command 2 Follow lane, 3 Left, 4 Right, 5 Straight)
-                    speed = targets[i+seq_len-1, 10] # speed
-                    sample = (img_seq, cmd, speed, [steer, gas, brake])
-                    self.data.append(sample)
+                    for i in range(len(images) - seq_len): # 200 - 5 = 195
+                        img_seq = images[i:i+seq_len] # tomar de 5 frames en 5
+                        steer, gas, brake = targets[i+seq_len-1, 0:3] # 0,1,2
+                        cmd = int(targets[i+seq_len-1, 23]) #high level command 2 Follow lane, 3 Left, 4 Right, 5 Straight)
+                        speed = targets[i+seq_len-1, 10] # speed
+                        sample = (img_seq, cmd, speed, [steer, gas, brake])
+                        self.data.append(sample)
 
-                    # Oversample if command is Left or Right
-                    if oversample and cmd in [3, 4]:
-                        for _ in range(2):  # duplicate twice
-                            self.data.append(sample)
+                        # Oversample if command is Left or Right
+                        if oversample and cmd in [3, 4]:
+                            for _ in range(2):  # duplicate twice
+                                self.data.append(sample)
+            except OSError as e:
+                print(f"corrupto:V : {file}")
+                continue
     def __len__(self):
         return len(self.data)
 
@@ -45,7 +49,8 @@ class CarlaDataset(Dataset):
         if cmd_index < 0 or cmd_index > 3:
             cmd_index = 0  # o salta este sample, o usa vector neutral
 
-        cmd_tensor = torch.nn.functional.one_hot(torch.tensor(cmd_index), num_classes=4).float()
+        #cmd_tensor = torch.nn.functional.one_hot(torch.tensor(cmd_index), num_classes=4).float()
+        cmd_tensor = torch.tensor(cmd_index).long()
         # 2(1,0,0,0), 3(0,1,0,0), 4(0,0,1,0), 5(0,0,0,1): 
 
         speed_tensor = torch.tensor([speed]).float()

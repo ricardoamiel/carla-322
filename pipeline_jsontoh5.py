@@ -157,7 +157,7 @@ def process_driving_data(folder_path, output_folder="output_h5"):
 
 if __name__ == "__main__":
     #ejecutando dentro de la misma carpetaa  episode_0000
-    json_folder_path = "." 
+    json_folder_path = "episode_0000" 
     
     process_driving_data(json_folder_path)
     print("Processing completed.")
