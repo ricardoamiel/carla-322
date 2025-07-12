@@ -80,6 +80,9 @@ for epoch in range(100):
             total_loss_gas += criterion(outputs[:, 1], targets[:, 1]).item()
             total_loss_brake += criterion(outputs[:, 2], targets[:, 2]).item()
 
+        if batch_idx % 100 == 0:
+            print(f"   Batch {batch_idx}/{len(dataloader)} - Loss: {loss.item():.4f}")
+
     avg_loss = total_loss / len(dataloader)
     print(f"🔁 Epoch {epoch+1} - Loss: {avg_loss:.4f} | "
           f"Steer: {total_loss_steer/len(dataloader):.4f} | "
