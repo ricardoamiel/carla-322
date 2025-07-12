@@ -42,7 +42,7 @@ print(f"✅ Dataset cargado con {len(dataloader)} batches")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"🚀 Usando dispositivo: {device}")
 
-model = M2.CNNAttentionLSTM(pretrained=True).to(device)
+model = M2.CNNAttentionLSTM().to(device)
 model = torch.compile(model)
 print("✅ Modelo cargado, preentrenado y compilado")
 

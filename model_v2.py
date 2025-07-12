@@ -3,7 +3,7 @@ import torch.nn as nn
 from torchvision.models import efficientnet_b0
 
 class CNNAttentionLSTM(nn.Module):
-    def __init__(self, cnn_output_dim=1280, lstm_hidden=512, fc_hidden=64, pretrained=True): # 1280. 512 y 64
+    def __init__(self, cnn_output_dim=1280, lstm_hidden=512, fc_hidden=64, pretrained=False): # 1280. 512 y 64
         super().__init__()
 
         # EfficientNet B0 como extractor visual
