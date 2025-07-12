@@ -3,14 +3,18 @@ import torch.nn as nn
 from torchvision.models import efficientnet_b0
 
 class CNNAttentionLSTM(nn.Module):
-    def __init__(self, cnn_output_dim=1280, lstm_hidden=512, fc_hidden=64, pretrained=True):
+    def __init__(self, cnn_output_dim=1280, lstm_hidden=512, fc_hidden=64, pretrained=True): # 1280. 512 y 64
         super().__init__()
 
         # EfficientNet B0 como extractor visual
-        base_model = efficientnet_b0(weights='IMAGENET1K_V1' if pretrained else None)
+        base_model = efficientnet_b0(weights=None)
+        checkpoint = torch.load("efficientnet_b0_rwightman-7f5810bc.pth")
+        base_model.load_state_dict(checkpoint)
         self.cnn = base_model.features  # Salida: [B*T, 1280, H', W']
 
         self.pool = nn.AdaptiveAvgPool2d(1)  # Reduce a [B*T, 1280, 1, 1]
+
+        #self.cnn_proj = nn.Linear(1280, cnn_output_dim) # si el cnn output dim es 1280 no hace nada
 
         # Proyección de velocidad: escalar → vector
         self.speed_fusion = nn.Sequential(
@@ -63,6 +67,7 @@ class CNNAttentionLSTM(nn.Module):
         x = img_seq.view(B*T, C, H, W)
         x = self.cnn(x)
         x = self.pool(x).flatten(1)
+        #x = self.cnn_proj(x)
         x = x.view(B, T, -1)
 
         speed_expanded = speed.unsqueeze(1).repeat(1, T, 1)
