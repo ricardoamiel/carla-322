@@ -23,10 +23,10 @@ h5_files = [os.path.join(h5_dir, f) for f in os.listdir(h5_dir) if f.endswith('.
 print(f"✅ Se encontraron {len(h5_files)} archivos H5")
 
 # Escoger aleatoriamente 500 archivos
-#import random
-#random.seed(42)
-#random.shuffle(h5_files)
-#h5_files = h5_files
+import random
+random.seed(42)
+random.shuffle(h5_files)
+h5_files = h5_files[:1500]
 print(f"🔍 Cargando {len(h5_files)} archivos H5 para el dataset")
 
 # Dataset y DataLoader
