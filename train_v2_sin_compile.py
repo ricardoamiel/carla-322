@@ -45,7 +45,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 scaler = amp.GradScaler("cuda")
 
 # Carpeta de checkpoints
-save_dir = os.getcwd() + "/checkpoints_usando_amp"
+save_dir = os.getcwd() + "/checkpoints_usando_amp_toda_la_data"
 os.makedirs(save_dir, exist_ok=True)
 best_loss = float('inf')
 
