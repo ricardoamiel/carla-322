@@ -1,7 +1,7 @@
 import h5py
 import os
 
-h5_dir = os.getcwd() + "/deep_learning_proyecto/data/SeqTrain/"
+h5_dir = os.getcwd() + "/data/SeqTrain/"
 h5_files = [os.path.join(h5_dir, f) for f in os.listdir(h5_dir) if f.endswith('.h5')]
 
 for path in h5_files:
